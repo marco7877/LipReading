@@ -16,36 +16,30 @@
 # -when key frames are selected, it computes the direction and magnitude of every 
 # point ihe ROI from key frame t to t+1, the saves such result in a histogram
 # -all resulting histograms for each point inside the ROI are summed and normalized
+#
+####Neither the haars cascade nor the shape predictor models are from my authorship
+#
+#The haars cascade model, and their corresponding license, can be downloaded from de OpenCV git page
+# (https://github.com/opencv/opencv/tree/master/data/haarcascades).
+#
+#Shape predictor can be downloaded from:
+# https://osdn.net/projects/sfnet_dclib/downloads/dlib/v18.10/shape_predictor_68_face_landmarks.dat.bz2/
+#
+#NOTES:
+#outter lips indexes: 48:61
+#inner lips indexes: 61:68
 
-
-#################
-## Importando las librerías necesarias
-#################
+##### libraries ##################
 import cv2 as cv
 import numpy as np
 import dlib
-#from skimage.feature import local_binary_pattern as lbp
+
 import matplotlib.pyplot as plt
-#from skimage import feature
 import math
-################
-## Definiendo la dirección de archivos
-###############
-'''
-NOTAS:
-    índices para los labios: 48,61
-    índices para la boca interior: 61,68
-'''
-#Este chunche es la base de la selección facial; a esto se le sobrepone 
-# el alineador de rasgos faciales
+
 cascade='/home/marco/Documents/spyder-py3/OPENCV/cascades/data/haarcascade_frontalface_default.xml'
-# es el modelo ya entrenado //
-# en este caso estoy usando el modelo de Kazemi & Sullivan//
-# espero poder entrenar el modeo para hacer puro reconocimiento de la boca
 model= '/home/marco/.config/spyder-py3/OPENCV/shape_predictor_68_face_landmarks.dat'
-###############
-# funciones
-###############
+##### functions#############
 def list_p(objeto):
     variable=([])
     for p in objeto:
@@ -152,28 +146,20 @@ def CosSim(a,b):
     cos=dotp/(lenga*lengb) ####### Esto es lo mismo que 
     #cos=np.dot(a,b)/((np.linalg.norm(a))*(np.linalg.norm(b)))
     return cos
-###############
-# vamos a construir el reconocedor y el alineador
-###############
+############### main#############3
 recognizer= cv.CascadeClassifier(cascade)# <- este utiliza OPENCV
 aligner=dlib.shape_predictor(model) # <- este utiliza DLIB
-#############
-# video
-#############
 file="/home/marco/Documents/spyder-py3/stimuli/ba/6.mp4"
 KeyFrameInfo=[]
 documento="ba6"
 documentofinal="labiosHistogramaDireccionMagnitudrangmas_5065"+documento+".txt"
 cap=cv.VideoCapture (file)
-#############
-# video output
-#############
-'''
-Hay que desbloquear las dos líneas de abajo si quieres crear un video. No olvides
- que también tienes que desbloquear las líneas 181 y 186
-'''
-#vid_cod = cv.VideoWriter_fourcc(*'XVID')
-#output = cv.VideoWriter("video.avi", vid_cod, 20.0, (640,480))
+forgevideo=False
+playvideo=False
+
+if forgevideo==True:
+    vid_cod = cv.VideoWriter_fourcc(*'XVID')
+    output = cv.VideoWriter("video.avi", vid_cod, 20.0, (640,480))
 ############
 # reproducción y análisis de los videos: identificación rostro, identificación
 # zonas de la boca, generación de nueva imagen de 8x8x20 px (8x8=recuadro boca)
@@ -192,10 +178,8 @@ while True:
         gray,
         scaleFactor=1.05,
         minNeighbors=5,
-        minSize=(200,200),# dimensiones mínimas del tamaño del rostro en pixeles
+        minSize=(200,200),# minimum dimensions of face in pixels
         flags=cv.CASCADE_SCALE_IMAGE)
-    #image=lbp(gray,8,2,method='default')
-    #image=image.astype(np.uint8)
     for (x,y,z,w) in faces:
         roi_gray=gray[y:y+w,x:x+z]
         end_coord_x=x+z
@@ -204,39 +188,26 @@ while True:
         stroke=2
         cv.rectangle(gray,(x,y),(end_coord_x,end_coord_y),color,stroke)
         dlib_face=dlib.rectangle(int(x),int(y),int(x+z),int(y+w))
-        detected_landmarks=aligner(gray,dlib_face).parts()# esto encuentra las coord de los landmarks
+        detected_landmarks=aligner(gray,dlib_face).parts()# landmarks coordinates
         landmarks=np.array(list_p(detected_landmarks))
         minimum=48
         maximum=60
         seleccion=selection(minimum,maximum,landmarks)
         x_axis,y_axis=axis(seleccion)
         mouth=mouth_roi(x_axis,y_axis,gray)
-        histogram = cv.calcHist([mouth],[0],None,[256],[0,256]) # histograma de intensidades de pixeles
+        histogram = cv.calcHist([mouth],[0],None,[256],[0,256]) # pixels intensity histogram
         histogram=np.resize(histogram,(256))
-        #if cuadro==1:
-            #plt.plot(histogram)
-            #plt.title("Histograma del primer cuadro ROI ga#3")
-            #plt.show()
         histogram=hist_norm(histogram)
         seleccion_lst=[value for coordinate in seleccion for value in coordinate]
         my_coord_magnitudes=[]
-        #cv.imshow('Frame',mouth)   
+        if forgevideo==True:
+            output.write(gray)
+        if playvideo==True:
+            cv.imshow('Frame',gray)   
         if cuadro==1:
             keyframe=1
             temporal=histogram
-            #plt.plot(temporal) 
-            #plt.title("Histograma normalizsillables=["ba1","ba2","ba3","ba4","ba5","ba6","ba7","ba8",
-           #"da1","da2","da3","da4","da5","da6","da7","da8",
-           #"ga1","ga2","ga3","ga4","ga5","ga6","ga7","ga8"]
-            #plt.show() 
-            #print('key frame:', str(keyframe), 'y el index:', str(cuadro))
             temporal_coord=seleccion_lst
-            #temporalvectors=splitlist(temporal_coord,2)
-            #plt.plot(seleccion_lst)
-            #plt.xlabel('detected_landmarks=aligner(gray,dlib_face).parts()# esto encuentra las coord de los landmarksq')
-            #plt.ylabel('Ubicación en pixeles')
-            #plt.axis('off')
-            #plt.show()
         else:
             comparation=cv.compareHist(temporal,histogram,0)
             print(comparation)
@@ -249,16 +220,10 @@ while True:
                 KeyFrameSum=my_temp
                 vectorlist=splitlist(my_temp,2)
                 descriptordummy=descriptorhist(temporal_coord,seleccion_lst,vectorlist)
-                ###lo de arriba calcula histograma de dirección y magnitudes###
+                ###upper lines from else untill here computes magnitude and orientation histograms###
                 temporal_coord=seleccion_lst
                 keyframe=keyframe+1
                 sumdescriptordummy=descriptordummy
-                #print('key frame:', str(keyframe), 'y el index:', str(cuadro))
-                #plt.plot(seleccion_lst)
-                #plt.xlabel('Identificador')
-                #plt.ylabel('Ubicación en pixeles')
-                #plt.axis('off')
-                #plt.show()
             elif comparation>=0.70 and comparation<=0.8 and keyframe>1:
                 temporal=histogram
                 my_temp=[]
@@ -269,31 +234,27 @@ while True:
                 KeyFrameInfo.append(my_temp)
                 vectorlist=splitlist(my_temp,2)
                 descriptordummy=descriptorhist(temporal_coord,seleccion_lst,vectorlist)
-                ###lo de arriba calcula histograma de dirección y magnitudes###
+                ###upper lines from elif untill here computes magnitude and orientation histograms###
                 temporal_coord=seleccion_lst
                 keyframe=keyframe+1
                 for i in range(len(sumdescriptordummy)):
                     sumdescriptordummy[i]=sumdescriptordummy[i]+descriptordummy[i]
                 temporal_coord=seleccion_lst
                 keyframe=keyframe+1
-                #print('key frame:', str(keyframe), 'y el index:', str(cuadro))
-                #plt.plot(seleccion_lst)
-                #plt.xlabel('Identificador')
-                #plt.ylabel('Ubicación en pixeles')
-                #plt.axis('off')
-               # plt.show()
         cuadro=cuadro+1
      
     if cv.waitKey(30) & 0xFF == ord('q'):
         break
 cap.release()
-#output.release()
+if forgevideo==True:
+    output.release()
 cv.destroyAllWindows()
 
 sumdescriptordummy=unarrange(sumdescriptordummy)
 sumdescriptordummy=magnitudnorm(sumdescriptordummy)
 
-#np.savetxt(documentofinal,sumdescriptordummy,fmt='%1.10f',delimiter=",")
+if savetxt==True:
+    np.savetxt(documentofinal,sumdescriptordummy,fmt='%1.10f',delimiter=",")
 
 #KeyFrameSum=np.array(KeyFrameSum)
 #KeyFrameSum=np.reshape(KeyFrameSum,(1,40))
